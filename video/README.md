@@ -1,6 +1,6 @@
 # RoomLilt demo video
 
-This tooling produces an English 1280×800 demonstration from real browser interactions, with separately synthesized narrator and assistant voices. The submitted cut is 125.2 seconds; the final builder rejects a video at or above 180 seconds. No third-party music, footage, or logos are used.
+This tooling produces an English 1280×800 demonstration from real browser interactions, with separately synthesized narrator and assistant voices. The submitted cut, `video/demo-assistant.mp4`, is 137.6 seconds (steps 1–7 below); the final builder rejects a video at or above 180 seconds. No third-party music, footage, or logos are used.
 
 ## Commands, in order
 
@@ -28,7 +28,7 @@ ffprobe -v error -show_entries format=duration:stream=codec_name,width,height -o
 
 The recorder uses a project-local Chromium under `data/browser-cache`. If it is missing, prepare it before step 3 with `PLAYWRIGHT_BROWSERS_PATH=./data/browser-cache npx playwright install chromium`. This command downloads browser binaries; it is not run by the recorder. Browser smoke tests, separately: `npm run test:browser`. The recording is headless, so it does not open a human browser window.
 
-## Optional: existing-assistant scene
+## Existing-assistant scene (used in the submitted cut)
 
 ```sh
 # 7. After step 5: add a scene in which Claude Code calls the same server.
@@ -55,4 +55,4 @@ The script prints the final ffprobe duration and fails if it reaches 180 seconds
 
 ## What the video shows
 
-The submitted video was produced with these commands: 125.2 seconds, 1280×800, H.264/AAC. A page reload in the video demonstrates a new MCP client connection; it is not presented as a server restart. Server-restart persistence is covered separately by `tests/process-restart.test.ts`. Nothing is uploaded by these commands.
+The submitted video, `video/demo-assistant.mp4`, was produced with steps 1–7: 137.6 seconds, 1280×800, H.264/AAC. Step 5 alone yields the 125.2-second `video/demo.mp4` without the assistant scene. A page reload in the video demonstrates a new MCP client connection; it is not presented as a server restart. Server-restart persistence is covered separately by `tests/process-restart.test.ts`. Nothing is uploaded by these commands.

@@ -28,7 +28,7 @@ Node.js, TypeScript, Express, and Zod support the server. Vite builds the browse
 
 This follows the Alexa+ track's self-hosted MCP and web-simulation path described in its guidance and FAQ. The application runs locally without AWS services or paid APIs.
 
-The 125.2-second English demo was recorded from real browser interactions with Playwright and assembled with ffmpeg at 1280×800 in H.264/AAC. macOS speech synthesis supplies Tom (Enhanced) for the narrator and Ava (Premium) for the assistant.
+The 137.6-second English demo was recorded from real browser interactions with Playwright and assembled with ffmpeg at 1280×800 in H.264/AAC. macOS speech synthesis supplies Tom (Enhanced) for the narrator and Ava (Premium) for the assistant. Near the end, a 12-second scene shows Claude Code, an existing AI assistant, connecting to the same MCP server over Streamable HTTP and reading the saved agreements and fairness ledger.
 
 ## Challenges we ran into
 

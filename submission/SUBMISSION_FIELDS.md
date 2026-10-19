@@ -43,7 +43,7 @@ Node.js, TypeScript, Express, and Zod support the server. Vite builds the browse
 
 This follows the Alexa+ track's self-hosted MCP and web-simulation path described in its guidance and FAQ. The application runs locally without AWS services or paid APIs.
 
-The 125.2-second English demo was recorded from real browser interactions with Playwright and assembled with ffmpeg at 1280×800 in H.264/AAC. macOS speech synthesis supplies Tom (Enhanced) for the narrator and Ava (Premium) for the assistant.
+The 137.6-second English demo was recorded from real browser interactions with Playwright and assembled with ffmpeg at 1280×800 in H.264/AAC. macOS speech synthesis supplies Tom (Enhanced) for the narrator and Ava (Premium) for the assistant. Near the end, a 12-second scene shows Claude Code, an existing AI assistant, connecting to the same MCP server over Streamable HTTP and reading the saved agreements and fairness ledger.
 
 ## Challenges we ran into
 
@@ -119,7 +119,7 @@ RoomLilt was built during the submission period by a solo entrant with AI coding
 | Vitest | Automated application tests | Recorded run: 58 tests passed across six files | Nothing blocking in this build | Run npm test | Yes — covers domain and HTTP behavior |
 | happy-dom | Display tests with a simulated DOM | Actual display logic runs over real HTTP | Layout still needs browser tests | Create a Window; load the display module | Yes — checks display logic locally |
 | Playwright + Chromium | Browser smoke tests and demo recording | Recorded run: two tests passed; real interactions recorded | Nothing blocking in this build | Install Chromium; run browser tests | Yes — verifies and records the visible flow |
-| ffmpeg | Demo video assembly and audio normalization | Produced the 125.2-second H.264/AAC video | Local build lacks the drawtext filter | Provide recorded clips; run video assembly | Yes — combines recording, voices, and cards |
+| ffmpeg | Demo video assembly and audio normalization | Produced the 137.6-second H.264/AAC video | Local build lacks the drawtext filter | Provide recorded clips; run video assembly | Yes — combines recording, voices, and cards |
 | macOS speech synthesis | Narrator Tom (Enhanced); assistant Ava (Premium) | Supplied both final demo voices locally | Nothing blocking in this build | Select installed voices; synthesize clips | Yes — provides separate offline voices |
 | Browser Web Speech APIs | Optional voice input and spoken responses | Text and chips remain available as fallback | Availability and permissions vary by browser | Enable speech controls in a supported browser | Yes — adds optional hands-free interaction |
 | AI coding agents | Implementation and review assistance | Helped the solo entrant build and review | Generated claims need code and test checks | Read the build spec; implement and verify | Yes — supports implementation with review |
