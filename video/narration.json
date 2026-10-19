@@ -1,0 +1,86 @@
+[
+  {
+    "id": "hook",
+    "action": "Show the connected opening screen.",
+    "narrator": "A free slot isn't always a fair slot. In shared homes, the same person often ends up making room.",
+    "assistant": ""
+  },
+  {
+    "id": "what-it-is",
+    "action": "Show fictional household members and local connection.",
+    "narrator": "RoomLilt is a self-hosted MCP server with a web client that simulates an Alexa-plus-style smart display. The household is fictional.",
+    "assistant": ""
+  },
+  {
+    "id": "morning",
+    "action": "Click What's clashing today? and Find a fair plan; show required-yield plan.",
+    "narrator": "Maya sleeps after a night shift, so Sam's laundry has to move. That is a required yield, and it still counts.",
+    "assistant": ""
+  },
+  {
+    "id": "morning-consent",
+    "action": "Choose recommended morning plan; show Sam consent; accept after audio.",
+    "narrator": "Nothing changes until Sam agrees.",
+    "assistant": "Sam, does this work for you?"
+  },
+  {
+    "id": "evening",
+    "action": "Click Who gets the living room tonight?; show Fairest and Lowest disruption together.",
+    "narrator": "Tonight, either person could adjust. Lowest disruption asks Sam again. Fairest asks Leo, because Sam has yielded nine times, and Leo once.",
+    "assistant": ""
+  },
+  {
+    "id": "decline",
+    "action": "Choose fairest evening plan; show Leo prompt; decline after audio.",
+    "narrator": "Leo can still say no.",
+    "assistant": "Leo, does this work for you?"
+  },
+  {
+    "id": "declined",
+    "action": "Show refusal response with no evening agreement saved.",
+    "narrator": "",
+    "assistant": "Leo did not consent. The schedule and ledger have not changed."
+  },
+  {
+    "id": "accept",
+    "action": "Choose the same fairest plan; show Leo consent; accept after audio.",
+    "narrator": "Asked again, Leo accepts.",
+    "assistant": "Leo, does this work for you?"
+  },
+  {
+    "id": "saved",
+    "action": "Show two saved agreements.",
+    "narrator": "",
+    "assistant": "Agreed and saved. The schedule and fairness ledger will survive a server restart."
+  },
+  {
+    "id": "persistence",
+    "action": "Reload client; click What did we agree?; show saved agreements.",
+    "narrator": "After a reload, both agreements come back from the server.",
+    "assistant": ""
+  },
+  {
+    "id": "change",
+    "action": "Click Leo's meeting runs 30 minutes late; show repair plan and kept agreements.",
+    "narrator": "Now Leo's meeting runs thirty minutes late. Only the affected part is re-planned. Earlier agreements stay.",
+    "assistant": ""
+  },
+  {
+    "id": "repair-consent",
+    "action": "Choose recommended repair; show Leo consent; accept after audio.",
+    "narrator": "This time Leo makes the change, so Leo is asked.",
+    "assistant": "Leo, does this work for you?"
+  },
+  {
+    "id": "protocol",
+    "action": "Open Protocol inspector; expand initialize result, tools/list, tools/call, elicitation/create.",
+    "narrator": "Under the hood, this is real MCP traffic. Initialize negotiates protocol version twenty twenty-five, eleven, twenty-five. Then tools list, tools call, and an elicitation request for consent, over Streamable HTTP.",
+    "assistant": ""
+  },
+  {
+    "id": "close",
+    "action": "Show fairness ledger and disclaimer.",
+    "narrator": "RoomLilt helps shared homes take turns fairly. In this demo, consent is role-based, not authenticated. Fictional data. Not affiliated with Amazon.",
+    "assistant": ""
+  }
+]

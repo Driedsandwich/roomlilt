@@ -1,0 +1,9 @@
+# Feature requests
+
+1. **Important — One ungated Alexa+ onboarding path on the track page.** State beside the Alexa+ Overview/Resources instructions that the Category SDK, MCP Toolkit, CLI, and Web Simulator are partner-only. Link a self-hosted Streamable HTTP example with a real web client and form elicitation. Preview-tool access is stated in the FAQ but not on the Overview or Resources pages, both read on October 19. That answer should be visible before entrants select an architecture. Basis: `FRICTION_LOG.md` entry 2.
+
+2. **Important — An explicit MCP compatibility matrix.** List accepted protocol revisions and a tested SDK/package line; explain the relationship between `@modelcontextprotocol/sdk` 1.x, the split v2 packages, and MCP Apps. The rules' wording about later confirmed versions and the Apps peer-dependency split made compliance and package selection uncertain. A migration example or v1-compatible Apps path would reduce mid-build rework. Basis: `FRICTION_LOG.md` entries 3–4.
+
+3. **Important — Installation footprints and a lightweight Vega simulator route.** Publish download, installed, temporary-space, and RAM requirements for each supported release. With about 20 GB free and no disk requirement stated on the 0.24 or 0.23 installation pages, the entrant could not determine whether the install would fit the four-day solo build window. Basis: `FRICTION_LOG.md` entry 6.
+
+4. **Important — Synchronized schedule and credit-availability notices.** Align the Devpost judging dates with Official Rules §1, and put the October 7 exhausted-credit notice beside every credit offer/request instruction. Promotional credits were exhausted per that update, so AWS use would have required the entrant's own billing account. A no-card AWS development path would help late joiners assess the mini challenge without that billing commitment. Basis: `FRICTION_LOG.md` entries 5 and 7.

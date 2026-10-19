@@ -1,0 +1,40 @@
+{
+  "name": "roomlilt-household",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.12 <23"
+  },
+  "scripts": {
+    "dev": "concurrently --kill-others -n mcp,web \"npm:dev:server\" \"npm:dev:web\"",
+    "dev:server": "tsx watch src/server/index.ts",
+    "dev:web": "vite --host 127.0.0.1",
+    "build": "tsc --noEmit && vite build",
+    "start": "tsx src/server/index.ts",
+    "preview": "vite preview --host 127.0.0.1",
+    "test": "vitest run",
+    "test:browser": "PLAYWRIGHT_BROWSERS_PATH=./data/browser-cache playwright test",
+    "demo:reset": "tsx scripts/reset-demo.ts",
+    "video:synth": "bash scripts/synth-audio.sh",
+    "video:record": "tsx scripts/record-demo.ts",
+    "video:build": "bash scripts/build-video.sh",
+    "video:assistant": "tsx scripts/add-assistant-scene.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.1",
+    "express": "^5.1.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.1",
+    "@types/express": "^5.0.3",
+    "@types/node": "^22.18.0",
+    "concurrently": "^9.2.1",
+    "happy-dom": "21.0.3",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3",
+    "vite": "^7.1.10",
+    "vitest": "5.0.5"
+  }
+}

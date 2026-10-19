@@ -1,0 +1,16 @@
+node_modules/
+dist/
+data/
+data/browser-cache/
+data/browser-tmp/
+test-results/
+artifacts/
+_context/
+playwright-report/
+*.log
+video/audio/
+video/raw/
+video/demo.mp4
+video/build/
+video/tooling-smoke/
+video/demo-assistant.mp4
