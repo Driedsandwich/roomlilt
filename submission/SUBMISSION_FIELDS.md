@@ -5,10 +5,24 @@
 | Project name | RoomLilt |
 | Tagline | A free slot is not always a fair slot. Household scheduling that protects fixed needs, remembers who yielded, and asks before saving a change. |
 | Primary track | Alexa+ |
-| Mini challenges | None |
+| Mini challenges | Open Source (fields below) |
 | Built with | TypeScript; Node.js 22; MCP TypeScript SDK 1.32.1; MCP specification 2025-11-25; Streamable HTTP; Express; Zod; Vite; HTML; CSS; browser Web Speech APIs; Vitest; happy-dom; Playwright + Chromium; tsx; concurrently; ffmpeg; macOS speech synthesis; AI coding agents |
 | Team / development disclosure | Solo entrant; built during the submission period with AI coding agents. |
 | Existing-project explanation | Built during the submission period as a new project. |
+
+## Open Source mini challenge
+
+| Required field | Value |
+| --- | --- |
+| Contribution URL | https://github.com/Driedsandwich/mcp-wire-inspector |
+| Project repository URL | https://github.com/Driedsandwich/roomlilt |
+| GitHub username | Driedsandwich |
+
+**What we did.** We extracted RoomLilt's Protocol inspector into a new, separate MIT-licensed package, `mcp-wire-inspector`, and generalized it beyond this app.
+
+**How it works.** `instrumentTransport` wraps a transport of the official MCP TypeScript SDK by intercepting outgoing `send` calls and incoming `onmessage` messages without changing their behavior. A bounded recorder classifies each JSON-RPC message, pairs responses with requests by ID to measure latency, and replaces values under secret-looking keys (authorization, token, API key, password) before storing them. `summarize` derives the negotiated protocol version, server name, and tool count from the recorded traffic. An optional dependency-free DOM panel shows a filterable, expandable message list with copy and export. The package has 24 tests, including a real Streamable HTTP session with a bidirectional elicitation round trip against the SDK server.
+
+**Why it matters.** Browser-based MCP clients, such as simulated assistant front ends, are hard to debug and hard to demonstrate: a screenshot of a result does not show whether the client really spoke MCP. Adding the recorder and panel makes initialization, tool calls, and elicitation visible to developers, teammates, and judges.
 
 ## Project story
 
