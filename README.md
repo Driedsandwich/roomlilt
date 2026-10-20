@@ -11,7 +11,7 @@ This is a self-hosted Model Context Protocol (MCP) server with a real MCP browse
 Use **Node.js 22.12 or newer within the Node 22 release line** and npm.
 
 ```sh
-npm install
+npm ci
 npm run demo:reset
 npm run dev
 ```

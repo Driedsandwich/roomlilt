@@ -240,7 +240,7 @@ These entries record actual build friction and the entrant's October 19, 2026 tr
 ## Testing instructions
 
 ```markdown
-1. Use Node.js 22.12 or newer within the Node 22 release line, with npm. In the downloaded project directory, run `npm install`, then `npm run demo:reset`, then `npm run dev`.
+1. Use Node.js 22.12 or newer within the Node 22 release line, with npm. In the downloaded project directory, run `npm ci`, then `npm run demo:reset`, then `npm run dev`.
 2. Open `http://127.0.0.1:5173`. The MCP server is `http://127.0.0.1:3001/mcp`; the web app uses the real SDK client through Vite's `/mcp` proxy. No account, API key, paid service, or physical device is needed.
 3. Ask **“What's clashing today?”**, then **“Find a fair plan.”** Choose the laundry proposal. Decline once and observe that no agreement was saved; choose it again and accept as Sam. The required yield protects Maya's sleep and updates Sam's history.
 4. Ask **“Who gets the living room tonight?”** Compare Lowest disruption (Sam delays game night) with Fairest (Leo reads in the private study). Choose the recommended plan and accept as Leo.
