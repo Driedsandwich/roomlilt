@@ -10,6 +10,30 @@ const morningAgreed = () => { const state = createDemoState(); return accept(sta
 const dayAgreed = () => { const state = morningAgreed(); return accept(state, eveningPlans(state)[0]); };
 
 describe('household planning', () => {
+  it('validates alternate-date plans against that date, including conflicts introduced by moving', () => {
+    const state = createDemoState();
+    const date = '2026-10-20';
+    const defaultActivities = structuredClone(state.activities);
+    state.activities.push(...defaultActivities.map(activity => ({ ...activity, id: `other-${activity.id}`, date })));
+    const conflict = findConflicts(state, date)[0];
+    const plans = proposePlans(state, conflict.id, date);
+    expect(plans.length).toBeGreaterThan(0);
+    expect(() => proposePlans(state, conflict.id, state.date)).toThrow('Conflict not found');
+    for (const plan of plans) {
+      expect(plan.changes.every(change => change.before.date === date && change.after.date === date)).toBe(true);
+      const next = accept(state, plan);
+      expect(next.activities.filter(activity => activity.date === state.date)).toEqual(defaultActivities);
+      expect(findConflicts(next, date).map(candidate => candidate.activityIds)).toEqual([['other-leo-reading', 'other-sam-game']]);
+    }
+    const changed = reportChange(state, 'other-leo-meeting', 'extend', 30);
+    expect(changed.conflicts.every(candidate => candidate.date === date)).toBe(true);
+    expect(changed.plans.length).toBeGreaterThan(0);
+    for (const plan of changed.plans) {
+      const next = accept(changed.state, plan);
+      expect(findConflicts(next, date).some(candidate => candidate.activityIds.includes('other-leo-meeting'))).toBe(false);
+    }
+  });
+
   it('separates required morning protection from a negotiable evening clash', () => {
     const state = createDemoState();
     expect(state.activities).toHaveLength(7);

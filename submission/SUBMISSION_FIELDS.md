@@ -6,7 +6,7 @@
 | Tagline | A free slot is not always a fair slot. Household scheduling that protects fixed needs, remembers who yielded, and asks before saving a change. |
 | Primary track | Alexa+ |
 | Mini challenges | Open Source (fields below) |
-| Built with | TypeScript; Node.js 22; MCP TypeScript SDK 1.32.1; MCP specification 2025-11-25; Streamable HTTP; Express; Zod; Vite; HTML; CSS; browser Web Speech APIs; Vitest; happy-dom; Playwright + Chromium; tsx; concurrently; ffmpeg; macOS speech synthesis; AI coding agents |
+| Built with | TypeScript; Node.js 22; MCP TypeScript SDK 1.32.1; MCP specification 2025-11-25; Streamable HTTP; Express; Zod; Vite; HTML; CSS; browser Web Speech APIs; Vitest; happy-dom; Playwright + Chromium; tsx; concurrently; ffmpeg; Kokoro (kokoro-onnx); Python; AI coding agents |
 | Team / development disclosure | Solo entrant; built during the submission period with AI coding agents. |
 | Existing-project explanation | Built during the submission period as a new project. |
 
@@ -20,7 +20,7 @@
 
 **What we did.** We extracted RoomLilt's Protocol inspector into a new, separate MIT-licensed package, `mcp-wire-inspector`, and generalized it beyond this app.
 
-**How it works.** `instrumentTransport` wraps a transport of the official MCP TypeScript SDK by intercepting outgoing `send` calls and incoming `onmessage` messages without changing their behavior. A bounded recorder classifies each JSON-RPC message, pairs responses with requests by ID to measure latency, and replaces values under secret-looking keys (authorization, token, API key, password) before storing them. `summarize` derives the negotiated protocol version, server name, and tool count from the recorded traffic. An optional dependency-free DOM panel shows a filterable, expandable message list with copy and export. The package has 24 tests, including a real Streamable HTTP session with a bidirectional elicitation round trip against the SDK server.
+**How it works.** `instrumentTransport` wraps a transport of the official MCP TypeScript SDK by intercepting outgoing `send` calls and incoming `onmessage` messages without changing their behavior. A bounded recorder classifies each JSON-RPC message, pairs responses with requests by ID to measure latency, and masks secret-looking values before storing them: values under keys such as authorization, token, API key, password, cookie and secret, the value of secret-named header pairs, and Bearer tokens, JWTs and common key prefixes inside strings, while keeping MCP's own `progressToken` and `maxTokens` visible. Masking is best-effort. `summarize` derives the negotiated protocol version, server name, and tool count from the recorded traffic. An optional dependency-free DOM panel shows a filterable, expandable message list with copy and export. The package has 60 tests, including a real Streamable HTTP session with a bidirectional elicitation round trip against the SDK server.
 
 **Why it matters.** Browser-based MCP clients, such as simulated assistant front ends, are hard to debug and hard to demonstrate: a screenshot of a result does not show whether the client really spoke MCP. Adding the recorder and panel makes initialization, tool calls, and elicitation visible to developers, teammates, and judges.
 
@@ -57,7 +57,7 @@ Node.js, TypeScript, Express, and Zod support the server. Vite builds the browse
 
 This follows the Alexa+ track's self-hosted MCP and web-simulation path described in its guidance and FAQ. The application runs locally without AWS services or paid APIs.
 
-The 137.6-second English demo was recorded from real browser interactions with Playwright and assembled with ffmpeg at 1280×800 in H.264/AAC. macOS speech synthesis supplies Tom (Enhanced) for the narrator and Ava (Premium) for the assistant. Near the end, a 12-second scene shows Claude Code, an existing AI assistant, connecting to the same MCP server over Streamable HTTP and reading the saved agreements and fairness ledger.
+The 119.0-second English demo was recorded from real browser interactions with Playwright and assembled with ffmpeg at 1280×800 in H.264/AAC. Kokoro, an open-weight speech model run locally, supplies the narrator (`am_michael`) and assistant (`af_heart`) voices.
 
 ## Challenges we ran into
 
@@ -71,7 +71,7 @@ An internal review before recording found four problems: generic plan titles, de
 
 The implemented result connects an inspectable protocol flow to a concrete household decision: protected sleep stays fixed, necessary yields still count in the ledger, and an evening recommendation can favor a slightly more disruptive change to avoid asking Sam again.
 
-Automated domain, router, persistence, and real HTTP tests cover refusal/cancellation, stale consent, protocol negotiation, and repair that preserves unrelated agreements. Recorded verification passed with 58 tests across six files and two separate rendered-browser smoke tests.
+Automated domain, router, persistence, and real HTTP tests cover refusal/cancellation, stale consent, protocol negotiation, and repair that preserves unrelated agreements. Recorded verification passed with 65 tests across six files and two separate rendered-browser smoke tests.
 
 ## What we learned
 
@@ -130,13 +130,13 @@ RoomLilt was built during the submission period by a solo entrant with AI coding
 | Express | HTTP endpoint and middleware | Hosts the SDK transport on loopback | Nothing blocking in this build | Create an app; mount the MCP endpoint | Yes — fits the small local server |
 | Zod | MCP tool argument schemas | Declares tool input constraints | Nothing blocking in this build | Define a schema for one tool | Yes — keeps tool inputs explicit |
 | Vite | Browser development and production bundle | Bundles the real SDK client | Nothing blocking in this build | Start development server with MCP proxy | Yes — supports both development and build |
-| Vitest | Automated application tests | Recorded run: 58 tests passed across six files | Nothing blocking in this build | Run npm test | Yes — covers domain and HTTP behavior |
+| Vitest | Automated application tests | Recorded run: 65 tests passed across six files | Nothing blocking in this build | Run npm test | Yes — covers domain and HTTP behavior |
 | happy-dom | Display tests with a simulated DOM | Actual display logic runs over real HTTP | Layout still needs browser tests | Create a Window; load the display module | Yes — checks display logic locally |
 | Playwright + Chromium | Browser smoke tests and demo recording | Recorded run: two tests passed; real interactions recorded | Nothing blocking in this build | Install Chromium; run browser tests | Yes — verifies and records the visible flow |
-| ffmpeg | Demo video assembly and audio normalization | Produced the 137.6-second H.264/AAC video | Local build lacks the drawtext filter | Provide recorded clips; run video assembly | Yes — combines recording, voices, and cards |
-| macOS speech synthesis | Narrator Tom (Enhanced); assistant Ava (Premium) | Supplied both final demo voices locally | Nothing blocking in this build | Select installed voices; synthesize clips | Yes — provides separate offline voices |
+| ffmpeg | Demo video assembly and audio normalization | Produced the 119.0-second H.264/AAC video | Local build lacks the drawtext filter | Provide recorded clips; run video assembly | Yes — combines recording, voices, and cards |
+| Kokoro text-to-speech (kokoro-onnx) | Narrator (`am_michael`) and assistant (`af_heart`) voices: 18 clips in 14 segments | Runs locally with Apache-2.0 model weights; no network service, account, or API key. Chosen because macOS system voices are licensed for personal, non-commercial use only | Nothing blocking in this build | Install `kokoro-onnx` and `soundfile` in Python; download two model files (about 205 MB) | Yes — local narration that can be published |
 | Browser Web Speech APIs | Optional voice input and spoken responses | Text and chips remain available as fallback | Availability and permissions vary by browser | Enable speech controls in a supported browser | Yes — adds optional hands-free interaction |
-| AI coding agents | Implementation and review assistance | Helped the solo entrant build and review | Generated claims need code and test checks | Read the build spec; implement and verify | Yes — supports implementation with review |
+| AI coding agents: OpenAI Codex and Claude Code | Codex implemented code and drafted documents from written specifications; Claude Code reviewed and fixed code, ran tests and browser checks, and recorded the video | Helped the solo entrant build and review | Generated claims need code and test checks | Read the build spec; implement and verify | Yes — supports implementation with review |
 | tsx | Runs TypeScript server and scripts | Executes the local TypeScript entry points | Nothing blocking in this build | Start the server through the npm script | Yes — supports the existing script workflow |
 | concurrently | Starts server and web development processes | One command runs both with shared shutdown | Nothing blocking in this build | Run npm run dev | Yes — keeps local startup simple |
 
@@ -191,7 +191,7 @@ These entries record actual build friction and the entrant's October 19, 2026 tr
 - **Task attempted:** Choose a compliant MCP protocol revision on October 19.
 - **Steps:** Compared the rules' 2025-11-25 requirement, including the phrase “or a later version, once confirmed,” with the MCP site's current revision and SDK version constants.
 - **Expected:** One explicit list of accepted protocol revisions and a matching SDK recommendation.
-- **Actual:** The MCP site listed 2026-07-28 as current, while TypeScript SDK 1.32.1 and 2.3.1 both reported `LATEST_PROTOCOL_VERSION = '2025-11-25'`. Whether 2026-07-28 counted as confirmed was unclear.
+- **Actual:** The MCP site listed 2026-07-28 as current, while `@modelcontextprotocol/sdk` 1.32.1 and `@modelcontextprotocol/core` 2.3.1 both reported `LATEST_PROTOCOL_VERSION = '2025-11-25'`. Whether 2026-07-28 counted as confirmed was unclear.
 - **Severity:** Medium; affected compliance and transport configuration.
 - **Workaround:** Targeted 2025-11-25 explicitly and allowed SDK negotiation with newer clients. The repository tests newer initialize requests receiving 2025-11-25 rather than rejecting them before negotiation.
 - **Actionable suggestion:** Name accepted revisions explicitly in the rules and link a tested SDK/version combination for each supported path.
@@ -233,7 +233,7 @@ These entries record actual build friction and the entrant's October 19, 2026 tr
 - **Expected:** Clear availability information before choosing a credit-dependent build path.
 - **Actual:** Promotional credits were exhausted per the October 7 update, so AWS use would have required the entrant's own billing account.
 - **Severity:** Medium; constrained the feasible mini-challenge scope.
-- **Workaround:** Kept this project local and selected no mini challenges.
+- **Workaround:** Kept this project local and did not enter the AWS Builder mini challenge. RoomLilt entered only the Open Source mini challenge, which required no AWS use.
 - **Actionable suggestion:** Display credit availability prominently wherever credits are offered, reconcile older request instructions with the update, and offer a no-card development path.
 ```
 

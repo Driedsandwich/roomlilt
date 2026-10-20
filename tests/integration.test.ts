@@ -1,19 +1,51 @@
 import { mkdir, readFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { request as httpRequest } from 'node:http';
-import { beforeEach, afterEach, describe, expect, it } from 'vitest';
+import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { ElicitRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import type { JSONRPCMessage } from '@modelcontextprotocol/sdk/types.js';
 import { createApplication, PROTOCOL_VERSION } from '../src/server/app.js';
 import type { ToolData } from '../src/shared/types.js';
+import { CONSENT_TIMEOUT_MS, TOOL_CALL_TIMEOUT_MS } from '../src/shared/timeouts.js';
 
 type App = Awaited<ReturnType<typeof createApplication>>;
 let app: App;
 let endpoint: string;
 let dataFile: string;
 const connections: Array<{ client: Client; transport: StreamableHTTPClientTransport }> = [];
+
+function gate() {
+  let release!: () => void;
+  const waiting = new Promise<void>(resolve => { release = resolve; });
+  return { waiting, release: () => release() };
+}
+
+async function sessionTools(sessionId: string) {
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json, text/event-stream', 'Mcp-Session-Id': sessionId, 'MCP-Protocol-Version': PROTOCOL_VERSION },
+    body: JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'tools/list' }),
+  });
+  await response.text();
+  return response.status;
+}
+
+async function twoMemberPlan(connection: Awaited<ReturnType<typeof connect>>) {
+  const state = app.store.snapshot();
+  const template = state.activities.find(activity => activity.id === 'sam-class')!;
+  state.activities = [
+    { ...template, id: 'long-session', memberId: 'leo', start: 540, end: 660, flexibleWindow: { start: 540, end: 720 } },
+    { ...template, id: 'short-session', memberId: 'sam', start: 600, end: 660, flexibleWindow: { start: 540, end: 720 } },
+  ];
+  await app.store.save(state);
+  const conflict = (await connection.call('find_conflicts')).conflicts![0];
+  const plans = (await connection.call('propose_plans', { conflictId: conflict.id })).plans!;
+  const plan = plans.find(candidate => candidate.yieldingMemberIds.length === 2)!;
+  expect(plan).toBeDefined();
+  return plan;
+}
 
 async function rawInitialize(protocolVersion: string) {
   const response = await fetch(endpoint, {
@@ -83,9 +115,137 @@ afterEach(async () => {
     await client.close().catch(() => undefined);
   }
   await app.close();
+  vi.useRealTimers();
+  vi.restoreAllMocks();
 });
 
 describe('real SDK client over stateful Streamable HTTP', () => {
+  it('admits clients beyond 64 sessions and evicts the least recently used session', async () => {
+    // Equal timestamps must still honor actual request order.
+    vi.spyOn(Date, 'now').mockReturnValue(Date.now());
+    const sessions = [];
+    for (let index = 0; index < 64; index++) {
+      sessions.push(await rawInitialize(PROTOCOL_VERSION));
+    }
+    expect(await sessionTools(sessions[0].sessionId)).toBe(200);
+    const newcomer = await connect();
+    expect((await newcomer.call('get_household_state')).state?.fictional).toBe(true);
+    expect(await sessionTools(sessions[1].sessionId)).toBe(404);
+    expect(await sessionTools(sessions[0].sessionId)).toBe(200);
+    // Concurrent admissions also replace sessions instead of refusing clients.
+    const more = await Promise.all(Array.from({ length: 3 }, () => rawInitialize(PROTOCOL_VERSION)));
+    for (const session of more) expect(await sessionTools(session.sessionId)).toBe(200);
+    expect(await sessionTools(sessions[2].sessionId)).toBe(404);
+    expect(await sessionTools(sessions[3].sessionId)).toBe(404);
+    expect(await sessionTools(sessions[4].sessionId)).toBe(404);
+  });
+
+  it('closes idle streams after 30 minutes while retaining recently active sessions', async () => {
+    await app.close();
+    vi.useFakeTimers({ toFake: ['Date', 'setInterval', 'clearInterval'] });
+    app = await createApplication({ dataFile });
+    endpoint = (await app.listen(0)).url;
+    const idle = await rawInitialize(PROTOCOL_VERSION);
+    const active = await rawInitialize(PROTOCOL_VERSION);
+    const stream = await fetch(endpoint, { headers: { Accept: 'text/event-stream', 'Mcp-Session-Id': idle.sessionId, 'MCP-Protocol-Version': PROTOCOL_VERSION } });
+    expect(stream.status).toBe(200);
+    const closedStream = stream.text();
+    await vi.advanceTimersByTimeAsync(20 * 60_000);
+    expect(await sessionTools(active.sessionId)).toBe(200);
+    await vi.advanceTimersByTimeAsync(10 * 60_000);
+    let closed = false;
+    void closedStream.then(() => { closed = true; });
+    expect(closed).toBe(false);
+    await vi.advanceTimersByTimeAsync(60_000);
+    await closedStream;
+    expect(await sessionTools(idle.sessionId)).toBe(404);
+    expect(await sessionTools(active.sessionId)).toBe(200);
+  });
+
+  it('shares a 120-second consent budget across members and saves nothing on expiry', async () => {
+    const connection = await connect();
+    const plan = await twoMemberPlan(connection);
+    const before = app.store.snapshot();
+    const diskBefore = await readFile(dataFile, 'utf8');
+    const first = gate();
+    const second = gate();
+    const proceed = gate();
+    const late = gate();
+    let requests = 0;
+    connection.client.setRequestHandler(ElicitRequestSchema, async request => {
+      if (request.params.mode === 'url') throw new Error('Only form consent is supported.');
+      const property = request.params.requestedSchema.properties.memberId;
+      const memberId = 'enum' in property ? property.enum?.[0] : undefined;
+      if (++requests === 1) { first.release(); await proceed.waiting; }
+      else { second.release(); await late.waiting; }
+      return { action: 'accept', content: { consent: true, memberId } };
+    });
+    vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'] });
+    const commit = connection.client.callTool({ name: 'commit_plan', arguments: { planId: plan.id } }, undefined, { timeout: TOOL_CALL_TIMEOUT_MS });
+    await first.waiting;
+    await vi.advanceTimersByTimeAsync(70_000);
+    proceed.release();
+    await second.waiting;
+    await vi.advanceTimersByTimeAsync(CONSENT_TIMEOUT_MS - 70_000 + 1);
+    const answer = await commit;
+    expect(answer.isError).toBe(true);
+    expect(answer.content).toEqual(expect.arrayContaining([expect.objectContaining({ text: expect.stringMatching(/timed out/i) })]));
+    late.release();
+    expect(app.store.snapshot()).toEqual(before);
+    expect(await readFile(dataFile, 'utf8')).toBe(diskBefore);
+  });
+
+  it.each(['timeout', 'cancel'] as const)('saves nothing when the client ends a consent call by %s', async reason => {
+    const connection = await connect();
+    const plan = await twoMemberPlan(connection);
+    const before = app.store.snapshot();
+    const diskBefore = await readFile(dataFile, 'utf8');
+    const second = gate();
+    const cancelled = gate();
+    const late = gate();
+    let requests = 0;
+    connection.client.setRequestHandler(ElicitRequestSchema, async (request, extra) => {
+      if (request.params.mode === 'url') throw new Error('Only form consent is supported.');
+      const property = request.params.requestedSchema.properties.memberId;
+      const memberId = 'enum' in property ? property.enum?.[0] : undefined;
+      if (++requests === 2) {
+        extra.signal.addEventListener('abort', cancelled.release, { once: true });
+        second.release();
+        await late.waiting;
+      }
+      return { action: 'accept', content: { consent: true, memberId } };
+    });
+    vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'] });
+    const controller = new AbortController();
+    const commit = connection.client.callTool({ name: 'commit_plan', arguments: { planId: plan.id } }, undefined, { timeout: 1000, signal: controller.signal });
+    const rejected = expect(commit).rejects.toThrow(reason === 'timeout' ? /timed out/i : /cancelled/i);
+    await second.waiting;
+    if (reason === 'timeout') await vi.advanceTimersByTimeAsync(1001);
+    else controller.abort(new Error('Client cancelled the call.'));
+    await rejected;
+    await cancelled.waiting;
+    late.release();
+    // A subsequent request also ensures the server has handled cancellation.
+    expect((await connection.call('get_household_state')).state).toEqual(before);
+    expect(await readFile(dataFile, 'utf8')).toBe(diskBefore);
+  });
+
+  it('plans and commits a conflict on another date without altering the default day', async () => {
+    const state = app.store.snapshot();
+    const date = '2026-10-20';
+    state.activities.push(...state.activities.map(activity => ({ ...activity, id: `other-${activity.id}`, date })));
+    await app.store.save(state);
+    const connection = await connect();
+    const conflict = (await connection.call('find_conflicts', { date })).conflicts![0];
+    expect(conflict.date).toBe(date);
+    const plan = (await connection.call('propose_plans', { conflictId: conflict.id, date })).plans![0];
+    const committed = await connection.call('commit_plan', { planId: plan.id });
+    expect(committed.committed).toBe(true);
+    expect(committed.state!.activities.filter(activity => activity.date === state.date)).toEqual(state.activities.filter(activity => activity.date === state.date));
+    expect((await connection.call('find_conflicts', { date })).conflicts!.some(candidate => candidate.id === conflict.id)).toBe(false);
+    expect(committed.state!.date).toBe(state.date);
+  });
+
   it.each([
     ['2025-11-25', '2025-11-25'],
     ['2026-07-28', '2025-11-25'],

@@ -244,7 +244,7 @@ async function findPlans(eveningOnly = false): Promise<void> {
     return;
   }
   keptAgreementIds = [];
-  const result = await call('propose_plans', { conflictId: conflict.id });
+  const result = await call('propose_plans', { conflictId: conflict.id, date: conflict.date });
   view = 'plans';
   say(result.message);
 }
@@ -414,7 +414,7 @@ if (recognition) {
   document.querySelector('#speech-hint')!.textContent = 'Speech input unavailable here. Type or use a suggestion.';
 }
 if (!('speechSynthesis' in window)) document.querySelector<HTMLButtonElement>('#voice-toggle')!.disabled = true;
-window.addEventListener('pagehide', () => { finishConsent('cancel'); void client.close(); });
+window.addEventListener('pagehide', () => { finishConsent('cancel'); void client.close({ keepalive: true }); });
 renderMessages();
 render();
 void connect();

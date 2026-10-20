@@ -38,7 +38,7 @@ The bundle contains the official SDK client. The server runs TypeScript through 
 
 ## Video and submission text
 
-The [English demo video](TODO_VIDEO_URL) is 137.6 seconds at 1280×800 in H.264/AAC. Near the end, a 12-second scene shows Claude Code, an existing AI assistant, connecting to the same MCP server over Streamable HTTP and reading the saved agreements and fairness ledger. It was recorded from real browser interactions with Playwright and assembled with ffmpeg. The final voices use macOS speech synthesis: Tom (Enhanced) narrates and Ava (Premium) speaks as the assistant. See [video/README.md](video/README.md) for the recording and assembly tooling. The recorder owns fresh fictional state and requires unused ports 3001 and 5173. The English Devpost field map is in [submission/SUBMISSION_FIELDS.md](submission/SUBMISSION_FIELDS.md); the story, feedback, and feature requests are also available as separate files in `submission/`.
+The [English demo video](TODO_VIDEO_URL) is 119.0 seconds at 1280×800 in H.264/AAC. It was recorded from real browser interactions with Playwright and assembled with ffmpeg. The voices are synthesized locally with Kokoro (Apache-2.0 model weights): `am_michael` narrates and `af_heart` speaks as the assistant. See [video/README.md](video/README.md) for the recording and assembly tooling. The recorder owns fresh fictional state and requires unused ports 3001 and 5173. The English Devpost field map is in [submission/SUBMISSION_FIELDS.md](submission/SUBMISSION_FIELDS.md); the story, feedback, and feature requests are also available as separate files in `submission/`.
 
 
 ## Demo script
@@ -89,7 +89,7 @@ Endpoint: **`http://127.0.0.1:3001/mcp`**. Stateful Streamable HTTP supports POS
 | --- | --- | --- |
 | `get_household_state` | `{}` | Members, resources, activities, agreements. |
 | `find_conflicts` | `{ "date": "2026-10-19" }` (optional date) | Connected conflicts on that date. |
-| `propose_plans` | `{ "conflictId": "..." }` | Feasible choices, concrete changes, ledger deltas. |
+| `propose_plans` | `{ "conflictId": "...", "date": "YYYY-MM-DD" }` | Feasible choices, concrete changes, ledger deltas. `date` is optional and defaults to the demo day. |
 | `commit_plan` | `{ "planId": "..." }` | Consent from every changing member, then atomic commit. |
 | `report_change` | `{ "activityId": "leo-meeting", "change": "extend", "minutes": 30 }` | Save change and return affected agreements/repairs. `change: "cancel"` removes the activity. Extensions use positive 15-minute increments, up to 180 per call. |
 | `get_fairness_ledger` | `{}` | Last-14-days yields, required/negotiated counts, and effort points. |
@@ -109,7 +109,7 @@ Start the server with `npm start`. Any MCP client that supports Streamable HTTP 
 claude mcp add --transport http roomlilt http://127.0.0.1:3001/mcp
 ```
 
-On October 19, 2026 we checked this path with Claude Code 2.1.303 in non-interactive mode, using a one-off `--mcp-config` file instead of a saved registration. It connected over Streamable HTTP, called `find_conflicts`, `get_fairness_ledger` and `propose_plans`, and reported that the Fairest evening plan asks Leo to yield. A second run against the final state of the recorded demo, with only project settings loaded, called `get_household_state` and `get_fairness_ledger`; its prompt, tool calls and answer appear in the demo video. Connection setup and form support depend on the installed assistant version. A client without form elicitation can read and propose but cannot commit. The standalone Agent Skill at `skills/household-fairness/SKILL.md` explains the tool workflow; it does not install or configure an assistant automatically.
+On October 19, 2026 we checked this path with Claude Code 2.1.303 in non-interactive mode, using a one-off `--mcp-config` file instead of a saved registration. It connected over Streamable HTTP, called `find_conflicts`, `get_fairness_ledger` and `propose_plans`, and reported that the Fairest evening plan asks Leo to yield. A second run against the final state of the recorded demo, with only project settings loaded, called `get_household_state` and `get_fairness_ledger`. That run was rendered as an optional video scene, which is not part of the submitted demo video. Connection setup and form support depend on the installed assistant version. A client without form elicitation can read and propose but cannot commit. The standalone Agent Skill at `skills/household-fairness/SKILL.md` explains the tool workflow; it does not install or configure an assistant automatically.
 
 ## Storage and verification
 
@@ -124,7 +124,7 @@ PLAYWRIGHT_BROWSERS_PATH=./data/browser-cache npx playwright install chromium
 npm run test:browser
 ```
 
-The browser smoke test uses separate demo data. On October 19, 2026, `npm run build` exited 0, `npm test` passed 58 tests in 6 files, and `npm run test:browser` passed 2 tests.
+The browser smoke test uses separate demo data. On October 20, 2026, `npm run build` exited 0, `npm test` passed 65 tests in 6 files, and `npm run test:browser` passed 2 tests.
 
 ## Alexa+ track fit and limitations
 

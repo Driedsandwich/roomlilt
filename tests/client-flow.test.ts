@@ -130,4 +130,16 @@ it('shows fairness deciding the evening plan, obtains named consent, and preserv
   expect(document.querySelectorAll('.conflict-card')).toHaveLength(0);
   const protocol = document.querySelector('#protocol-traffic')!.textContent!;
   for (const expected of ['2025-11-25', 'initialize', 'tools/list', 'tools/call', 'elicitation/create']) expect(protocol).toContain(expected);
+  const fetchSpy = vi.spyOn(globalThis, 'fetch');
+  window.dispatchEvent(new window.Event('pagehide'));
+  await vi.waitFor(() => expect(fetchSpy).toHaveBeenCalledWith(expect.any(URL), expect.objectContaining({
+    method: 'DELETE', keepalive: true,
+    headers: expect.objectContaining({ 'Mcp-Session-Id': expect.any(String), 'MCP-Protocol-Version': '2025-11-25' }),
+  })));
+  const deleted = fetchSpy.mock.calls.find(([, options]) => options?.method === 'DELETE' && options.keepalive);
+  const sessionId = (deleted![1]!.headers as Record<string, string>)['Mcp-Session-Id'];
+  await vi.waitFor(async () => {
+    expect((await fetch(url, { method: 'DELETE', headers: { 'Mcp-Session-Id': sessionId } })).status).toBe(404);
+  });
+  fetchSpy.mockRestore();
 }, 15000);

@@ -28,7 +28,7 @@ Node.js, TypeScript, Express, and Zod support the server. Vite builds the browse
 
 This follows the Alexa+ track's self-hosted MCP and web-simulation path described in its guidance and FAQ. The application runs locally without AWS services or paid APIs.
 
-The 137.6-second English demo was recorded from real browser interactions with Playwright and assembled with ffmpeg at 1280×800 in H.264/AAC. macOS speech synthesis supplies Tom (Enhanced) for the narrator and Ava (Premium) for the assistant. Near the end, a 12-second scene shows Claude Code, an existing AI assistant, connecting to the same MCP server over Streamable HTTP and reading the saved agreements and fairness ledger.
+The 119.0-second English demo was recorded from real browser interactions with Playwright and assembled with ffmpeg at 1280×800 in H.264/AAC. Kokoro, an open-weight speech model run locally, supplies the narrator (`am_michael`) and assistant (`af_heart`) voices.
 
 ## Challenges we ran into
 
@@ -42,7 +42,7 @@ An internal review before recording found four problems: generic plan titles, de
 
 The implemented result connects an inspectable protocol flow to a concrete household decision: protected sleep stays fixed, necessary yields still count in the ledger, and an evening recommendation can favor a slightly more disruptive change to avoid asking Sam again.
 
-Automated domain, router, persistence, and real HTTP tests cover refusal/cancellation, stale consent, protocol negotiation, and repair that preserves unrelated agreements. Recorded verification passed with 58 tests across six files and two separate rendered-browser smoke tests.
+Automated domain, router, persistence, and real HTTP tests cover refusal/cancellation, stale consent, protocol negotiation, and repair that preserves unrelated agreements. Recorded verification passed with 65 tests across six files and two separate rendered-browser smoke tests.
 
 ## What we learned
 

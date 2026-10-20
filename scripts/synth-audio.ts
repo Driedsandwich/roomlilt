@@ -52,68 +52,48 @@ function main() {
   }
   run('ffprobe', ['-version']);
   run('ffmpeg', ['-version']);
-  const voiceList = run('say', ['-v', '?']).stdout;
-  // The submitted video used "Tom (Enhanced)"; NARRATOR_MAC_VOICE overrides it.
-  const narratorVoice = process.env.NARRATOR_MAC_VOICE?.trim() || 'Tom (Enhanced)';
-  if (!voiceList.split('\n').some(line => line.startsWith(`${narratorVoice} `))) {
-    throw new Error(`Narrator voice "${narratorVoice}" is not installed. Add it in System Settings > Accessibility > Spoken Content > System voice > Manage Voices, or set NARRATOR_MAC_VOICE.`);
+  // Local Kokoro speech synthesis (Apache-2.0 weights); no network speech service is used.
+  // macOS system voices are not used: their license limits them to personal, non-commercial use.
+  const python = process.env.KOKORO_PYTHON?.trim() || 'python3';
+  const model = resolve(root, process.env.KOKORO_MODEL?.trim() || 'data/tts/kokoro-v1.0.fp16.onnx');
+  const voices = resolve(root, process.env.KOKORO_VOICES?.trim() || 'data/tts/voices-v1.0.bin');
+  for (const file of [model, voices]) {
+    if (!existsSync(file)) throw new Error(`Kokoro file not found: ${relative(root, file)}. See video/README.md for the download, or set KOKORO_MODEL / KOKORO_VOICES.`);
   }
-  let assistantVoice = 'Samantha';
-  const firstAssistant = rows.find(row => row.assistant.trim())?.assistant.trim();
-  if (firstAssistant) {
-    assistantVoice = /^Ava \(Premium\)\s/m.test(voiceList) ? 'Ava (Premium)' : 'Samantha';
-    const source = resolve(audioDir, 'assistant-preflight.aiff');
-    const output = resolve(audioDir, 'assistant-preflight.wav');
-    const checkVoice = () => {
-      run('say', ['-v', assistantVoice, '-o', source, firstAssistant]);
-      duration(source);
-      normalize(source, output); // Reject nonempty-but-silent audio too.
-    };
-    try { checkVoice(); }
-    catch (error) {
-      if (assistantVoice !== 'Ava (Premium)') throw error;
-      console.warn(`Ava (Premium) preflight failed: ${error instanceof Error ? error.message : String(error)}`);
-      console.warn('Trying Samantha.');
-      assistantVoice = 'Samantha';
-      try { checkVoice(); }
-      catch (fallbackError) { throw new Error(`Samantha preflight failed: ${fallbackError instanceof Error ? fallbackError.message : String(fallbackError)}. No timeline was written. Check that macOS speech synthesis can write audio files.`); }
-    }
-    unlinkSync(source);
-    unlinkSync(output);
-    console.log(`Assistant preflight passed: ${assistantVoice}.`);
-  }
-  const segments = rows.map(row => {
-    function create(role: 'narrator' | 'assistant'): Clip | null {
+  const narratorVoice = process.env.KOKORO_NARRATOR_VOICE?.trim() || 'am_michael';
+  const assistantVoice = process.env.KOKORO_ASSISTANT_VOICE?.trim() || 'af_heart';
+  const speed = Number(process.env.KOKORO_SPEED ?? 1.1);
+  if (!Number.isFinite(speed) || speed < 0.5 || speed > 2) throw new Error('KOKORO_SPEED must be between 0.5 and 2.');
+  const jobs: { text: string; voice: string; speed: number; out: string }[] = [];
+  const planned = rows.map(row => {
+    function plan(role: 'narrator' | 'assistant') {
       const line = row[role].trim();
       if (!line) return null;
-      const source = resolve(audioDir, `${row.id}-${role}-source.aiff`);
-      const output = resolve(audioDir, `${row.id}-${role}.wav`);
-      if (role === 'narrator') { run('say', ['-v', narratorVoice, '-o', source, line]); duration(source); }
-      else {
-        try {
-          run('say', ['-v', assistantVoice, '-o', source, line]);
-          duration(source); // Some sandboxed say runs exit 0 but write no samples.
-          normalize(source, output);
-        }
-        catch (error) {
-          if (assistantVoice !== 'Ava (Premium)') throw error;
-          console.warn('Ava (Premium) could not synthesize; falling back to Samantha.');
-          assistantVoice = 'Samantha';
-          run('say', ['-v', assistantVoice, '-o', source, line]);
-          duration(source);
-          normalize(source, output);
-        }
-      }
-      if (role === 'narrator') normalize(source, output);
-      const clip = { file: relative(root, output).split(sep).join('/'), durationMs: duration(output) };
+      const source = resolve(audioDir, `${row.id}-${role}-source.wav`);
+      jobs.push({ text: line, voice: role === 'narrator' ? narratorVoice : assistantVoice, speed, out: source });
+      return { source, output: resolve(audioDir, `${row.id}-${role}.wav`) };
+    }
+    return { id: row.id, narrator: plan('narrator'), assistant: plan('assistant') };
+  });
+  const jobsFile = resolve(audioDir, 'kokoro-jobs.json');
+  writeFileSync(jobsFile, JSON.stringify(jobs, null, 2) + '\n');
+  run(python, [resolve(root, 'scripts/kokoro-tts.py'), model, voices, jobsFile]);
+  unlinkSync(jobsFile);
+  const segments = planned.map(row => {
+    function finish(role: 'narrator' | 'assistant', paths: { source: string; output: string } | null): Clip | null {
+      if (!paths) return null;
+      duration(paths.source); // Reject a missing or empty synthesis result before normalizing.
+      normalize(paths.source, paths.output);
+      unlinkSync(paths.source);
+      const clip = { file: relative(root, paths.output).split(sep).join('/'), durationMs: duration(paths.output) };
       console.log(`${row.id} ${role}: ${clip.durationMs} ms`);
       return clip;
     }
-    const narrator = create('narrator');
-    const assistant = create('assistant');
+    const narrator = finish('narrator', row.narrator);
+    const assistant = finish('assistant', row.assistant);
     return { id: row.id, narrator, assistant, durationMs: (narrator?.durationMs ?? 0) + (assistant?.durationMs ?? 0) + 800 };
   });
-  const timeline = { narratorVoice, assistantVoice, loudnessTargetLUFS: -18, truePeakLimitDb: -2, tailGapMs: 800, segments, durationMs: segments.reduce((sum, row) => sum + row.durationMs, 0) };
+  const timeline = { narratorVoice: `Kokoro ${narratorVoice}`, assistantVoice: `Kokoro ${assistantVoice}`, speechSpeed: speed, loudnessTargetLUFS: -18, truePeakLimitDb: -2, tailGapMs: 800, segments, durationMs: segments.reduce((sum, row) => sum + row.durationMs, 0) };
   console.log(`Audio timeline: ${(timeline.durationMs / 1000).toFixed(3)} s; title/end cards add 5 s, plus actual UI interaction time.`);
   if (timeline.durationMs + 5000 >= 180000) throw new Error('Audio and cards alone reach 180 seconds. Shorten narration before recording.');
   writeFileSync(manifest, JSON.stringify(timeline, null, 2) + '\n');

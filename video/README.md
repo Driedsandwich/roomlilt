@@ -1,6 +1,6 @@
 # RoomLilt demo video
 
-This tooling produces an English 1280×800 demonstration from real browser interactions, with separately synthesized narrator and assistant voices. The submitted cut, `video/demo-assistant.mp4`, is 137.6 seconds (steps 1–7 below); the final builder rejects a video at or above 180 seconds. No third-party music, footage, or logos are used.
+This tooling produces an English 1280×800 demonstration from real browser interactions, with separately synthesized narrator and assistant voices. The submitted cut, `video/demo.mp4`, is 119.0 seconds (steps 1–5 below); the final builder rejects a video at or above 180 seconds. No third-party music, footage, or logos are used.
 
 ## Commands, in order
 
@@ -28,18 +28,18 @@ ffprobe -v error -show_entries format=duration:stream=codec_name,width,height -o
 
 The recorder uses a project-local Chromium under `data/browser-cache`. If it is missing, prepare it before step 3 with `PLAYWRIGHT_BROWSERS_PATH=./data/browser-cache npx playwright install chromium`. This command downloads browser binaries; it is not run by the recorder. Browser smoke tests, separately: `npm run test:browser`. The recording is headless, so it does not open a human browser window.
 
-## Existing-assistant scene (used in the submitted cut)
+## Optional existing-assistant scene (not in the submitted cut)
 
 ```sh
 # 7. After step 5: add a scene in which Claude Code calls the same server.
 npm run video:assistant
 ```
 
-`scripts/add-assistant-scene.ts` copies the recorder's final fictional data file, starts the MCP server on port 3011, and runs `claude -p` once with a one-off `--mcp-config` file (the assistant's saved configuration is not changed). It keeps the raw stream-json output in `video/raw/assistant.jsonl`, fails unless Claude Code connected and read the household state and ledger, and renders the prompt, actual tool calls, and answer as a 1280×800 card. A Tom (Enhanced) narration line is added, and the scene is inserted in the pause before the closing segment. The result is `video/demo-assistant.mp4`; `video/demo.mp4` is unchanged. This step needs the `claude` CLI and its sign-in.
+`scripts/add-assistant-scene.ts` copies the recorder's final fictional data file, starts the MCP server on port 3011, and runs `claude -p` once with a one-off `--mcp-config` file (the assistant's saved configuration is not changed). It keeps the raw stream-json output in `video/raw/assistant.jsonl`, fails unless Claude Code connected and read the household state and ledger, and renders the prompt, actual tool calls, and answer as a 1280×800 card. A narration line in the same Kokoro voice (`am_michael`) is added, and the scene is inserted in the pause before the closing segment. The result is `video/demo-assistant.mp4`; `video/demo.mp4`, the submitted cut, is unchanged. This step needs the `claude` CLI and its sign-in.
 
 ## Audio prerequisites and outputs
 
-`video/narration.json` is the ordered source for both voices and the UI action description. Both voices use macOS speech synthesis. The narrator uses `say -v "Tom (Enhanced)" -o <output.aiff> <text>`; set `NARRATOR_MAC_VOICE` to use another installed voice. The script stops before writing a timeline if the narrator voice is not installed. Assistant lines use `say -v "Ava (Premium)"`, falling back to `Samantha` when unavailable or producing invalid/empty audio. Enhanced and Premium voices are added in System Settings > Accessibility > Spoken Content > System voice > Manage Voices; the script downloads nothing. ffmpeg and ffprobe must be on PATH. Judges do not need any voice to run the application.
+`video/narration.json` is the ordered source for both voices and the UI action description. Speech is synthesized locally by `scripts/kokoro-tts.py` with [Kokoro](https://huggingface.co/hexgrad/Kokoro-82M) (Apache-2.0 model weights) through [kokoro-onnx](https://github.com/thewh1teagle/kokoro-onnx) (MIT). macOS system voices are not used because their license limits them to personal, non-commercial use. Install `kokoro-onnx` and `soundfile` into a Python environment and download `kokoro-v1.0.fp16.onnx` and `voices-v1.0.bin` (about 205 MB together) from the kokoro-onnx `model-files-v1.0` release into `data/tts/`, or point `KOKORO_MODEL` and `KOKORO_VOICES` at them; `KOKORO_PYTHON` selects the Python interpreter. The narrator defaults to `am_michael` and the assistant to `af_heart` (`KOKORO_NARRATOR_VOICE`, `KOKORO_ASSISTANT_VOICE`) at speed 1.1 (`KOKORO_SPEED`). Missing model files stop the script with setup guidance; the scripts download nothing. ffmpeg and ffprobe must be on PATH. Judges do not need any voice to run the application.
 
 `video/audio/` contains source and normalized clips plus `timeline.json`. Clip durations come from ffprobe. Each segment places the narrator first and the assistant immediately afterward, followed by an 800 ms hold. Both voices target −18 LUFS with a −2 dB true-peak ceiling; the final mix is limited as well. Invalid or silent synthesis fails instead of substituting invented audio or silently emitting a ready timeline.
 
@@ -55,4 +55,4 @@ The script prints the final ffprobe duration and fails if it reaches 180 seconds
 
 ## What the video shows
 
-The submitted video, `video/demo-assistant.mp4`, was produced with steps 1–7: 137.6 seconds, 1280×800, H.264/AAC. Step 5 alone yields the 125.2-second `video/demo.mp4` without the assistant scene. A page reload in the video demonstrates a new MCP client connection; it is not presented as a server restart. Server-restart persistence is covered separately by `tests/process-restart.test.ts`. Nothing is uploaded by these commands.
+The submitted video, `video/demo.mp4`, was produced with steps 1–5: 119.0 seconds, 1280×800, H.264/AAC. The optional step 7 yields the 132.8-second `video/demo-assistant.mp4` with the assistant scene; it is not submitted. A page reload in the video demonstrates a new MCP client connection; it is not presented as a server restart. Server-restart persistence is covered separately by `tests/process-restart.test.ts`. Nothing is uploaded by these commands.

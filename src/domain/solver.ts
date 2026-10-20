@@ -155,13 +155,13 @@ function planReason(state: HouseholdState, plan: Plan, alternatives: Plan[]): st
 }
 
 /** Generates a small, deterministic set of feasible alternatives for one connected conflict. */
-export function proposePlans(state: HouseholdState, conflictId: string): Plan[] {
-  const conflict = findConflicts(state).find((candidate) => candidate.id === conflictId);
+export function proposePlans(state: HouseholdState, conflictId: string, date = state.date): Plan[] {
+  const conflict = findConflicts(state, date).find((candidate) => candidate.id === conflictId);
   if (!conflict) throw new Error('Conflict not found. Refresh the household state and find conflicts again.');
   const involved = state.activities.filter((a) => conflict.activityIds.includes(a.id));
   const optionSets = involved.map((a) => activityOptions(a, state, involved));
   const results: Plan[] = [];
-  const baselineOtherIds = new Set(findConflicts(state).filter((c) => c.id !== conflictId).flatMap((c) => c.activityIds));
+  const baselineOtherIds = new Set(findConflicts(state, date).filter((c) => c.id !== conflictId).flatMap((c) => c.activityIds));
   const explore = (index: number, selected: Activity[]) => {
     if (index < involved.length) {
       for (const option of optionSets[index]) explore(index + 1, [...selected, option]);
@@ -169,7 +169,7 @@ export function proposePlans(state: HouseholdState, conflictId: string): Plan[] 
     }
     const replacements = new Map(selected.map((a) => [a.id, a]));
     const activities = state.activities.map((a) => replacements.get(a.id) ?? a);
-    const remaining = findConflicts({ ...state, activities });
+    const remaining = findConflicts({ ...state, activities }, date);
     // Existing independent conflicts may remain, but this plan cannot introduce any new conflict.
     if (remaining.some((c) => c.activityIds.some((id) => !baselineOtherIds.has(id)))) return;
     const changes = involved.filter((a, i) => JSON.stringify(a) !== JSON.stringify(selected[i])).map((a) => changeFor(a, replacements.get(a.id)!, state));
@@ -221,7 +221,7 @@ export function proposePlans(state: HouseholdState, conflictId: string): Plan[] 
 /** Consent and plan validity are checked again against the current revision before any mutation. */
 export function applyPlan(state: HouseholdState, plan: Plan, acceptedBy: MemberId[]): HouseholdState {
   if (plan.revision !== state.revision) throw new Error('This plan is stale. Ask for a fresh plan before agreeing.');
-  const canonical = proposePlans(state, plan.conflictId).find((candidate) => candidate.id === plan.id);
+  const canonical = proposePlans(state, plan.conflictId, plan.changes[0]?.before.date).find((candidate) => candidate.id === plan.id);
   if (!canonical || JSON.stringify(canonical) !== JSON.stringify(plan)) throw new Error('This plan is not a current, valid proposal.');
   if (canonical.yieldingMemberIds.some((memberId) => !acceptedBy.includes(memberId))) throw new Error('Every yielding member must consent before the plan is committed.');
   const next = clone(state);
@@ -249,13 +249,13 @@ export function reportChange(state: HouseholdState, activityId: string, change: 
   const next = clone(state);
   next.revision++;
   next.activities = change === 'cancel' ? next.activities.filter((a) => a.id !== activityId) : next.activities.map((a) => a.id === activityId ? { ...a, end: a.end + minutes } : a);
-  const conflicts = findConflicts(next);
+  const conflicts = findConflicts(next, activity.date);
   const affectedActivityIds = new Set([activityId, ...conflicts.filter((c) => c.activityIds.includes(activityId)).flatMap((c) => c.activityIds)]);
   const affectedAgreementIds = next.agreements.filter((agreement) => agreement.status === 'active' && agreement.changes.some((c) => affectedActivityIds.has(c.activityId))).map((a) => a.id);
   // A reported extension or cancellation invalidates the recorded timing of that activity.
   for (const agreement of next.agreements) if (agreement.changes.some((c) => c.activityId === activityId) && agreement.status === 'active') agreement.status = 'superseded';
   const affectedConflicts = conflicts.filter((c) => c.activityIds.includes(activityId));
-  const plans = affectedConflicts.flatMap((conflict) => proposePlans(next, conflict.id));
+  const plans = affectedConflicts.flatMap((conflict) => proposePlans(next, conflict.id, conflict.date));
   const keptAgreementIds = next.agreements.filter((a) => a.status === 'active' && !affectedAgreementIds.includes(a.id)).map((a) => a.id);
   return { state: next, affectedAgreementIds, keptAgreementIds, plans, conflicts };
 }

@@ -139,7 +139,8 @@ function main() {
   for (const clip of clips) args.push('-i', clip.file);
   const filters = [
     `[1:v]fps=30,format=yuv420p,setsar=1,settb=AVTB,setpts=PTS-STARTPTS[title]`,
-    `[0:v]fps=30,tpad=stop_mode=clone:stop_duration=${Math.max(0, bodySeconds - raw.seconds).toFixed(6)},trim=duration=${bodySeconds.toFixed(6)},format=yuv420p,setsar=1,settb=AVTB,setpts=PTS-STARTPTS[body]`,
+    // Cover the 32px sync marker with the patch just below it, so it matches whatever is behind (page or dialog backdrop).
+    `[0:v]fps=30,split=2[sm][sc];[sc]crop=32:32:0:32[sp];[sm][sp]overlay=0:0,tpad=stop_mode=clone:stop_duration=${Math.max(0, bodySeconds - raw.seconds).toFixed(6)},trim=duration=${bodySeconds.toFixed(6)},format=yuv420p,setsar=1,settb=AVTB,setpts=PTS-STARTPTS[body]`,
     '[2:v]fps=30,format=yuv420p,setsar=1,settb=AVTB,setpts=PTS-STARTPTS[end]',
     '[title][body][end]concat=n=3:v=1:a=0[v]',
   ];

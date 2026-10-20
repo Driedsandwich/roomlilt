@@ -138,10 +138,12 @@ async function main() {
   console.log(`Answer: ${result.answer}`);
   const card = resolve(build, 'assistant-card.png');
   await renderCard(result, card);
-  const voice = process.env.NARRATOR_MAC_VOICE?.trim() || 'Tom (Enhanced)';
-  const speech = resolve(build, 'assistant-narration.aiff');
+  // Same local Kokoro voice and settings as scripts/synth-audio.ts (macOS system voices are not used).
+  const speech = resolve(build, 'assistant-narration-source.wav');
   const voiceTrack = resolve(build, 'assistant-narration.wav');
-  run('say', ['-v', voice, '-o', speech, narration]);
+  const jobsFile = resolve(build, 'assistant-kokoro-jobs.json');
+  writeFileSync(jobsFile, JSON.stringify([{ text: narration, voice: process.env.KOKORO_NARRATOR_VOICE?.trim() || 'am_michael', speed: Number(process.env.KOKORO_SPEED ?? 1.1), out: speech }]) + '\n');
+  run(process.env.KOKORO_PYTHON?.trim() || 'python3', [resolve('scripts/kokoro-tts.py'), resolve(process.env.KOKORO_MODEL?.trim() || 'data/tts/kokoro-v1.0.fp16.onnx'), resolve(process.env.KOKORO_VOICES?.trim() || 'data/tts/voices-v1.0.bin'), jobsFile]);
   normalize(speech, voiceTrack);
   const lead = 0.4;
   const cardSeconds = Math.ceil((lead + seconds(voiceTrack) + holdSeconds) * 30) / 30;

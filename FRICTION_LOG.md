@@ -27,7 +27,7 @@ These entries record actual build friction and the entrant's October 19, 2026 tr
 - **Task attempted:** Choose a compliant MCP protocol revision on October 19.
 - **Steps:** Compared the rules' 2025-11-25 requirement, including the phrase “or a later version, once confirmed,” with the MCP site's current revision and SDK version constants.
 - **Expected:** One explicit list of accepted protocol revisions and a matching SDK recommendation.
-- **Actual:** The MCP site listed 2026-07-28 as current, while TypeScript SDK 1.32.1 and 2.3.1 both reported `LATEST_PROTOCOL_VERSION = '2025-11-25'`. Whether 2026-07-28 counted as confirmed was unclear.
+- **Actual:** The MCP site listed 2026-07-28 as current, while `@modelcontextprotocol/sdk` 1.32.1 and `@modelcontextprotocol/core` 2.3.1 both reported `LATEST_PROTOCOL_VERSION = '2025-11-25'`. Whether 2026-07-28 counted as confirmed was unclear.
 - **Severity:** Medium; affected compliance and transport configuration.
 - **Workaround:** Targeted 2025-11-25 explicitly and allowed SDK negotiation with newer clients. The repository tests newer initialize requests receiving 2025-11-25 rather than rejecting them before negotiation.
 - **Actionable suggestion:** Name accepted revisions explicitly in the rules and link a tested SDK/version combination for each supported path.
@@ -69,5 +69,5 @@ These entries record actual build friction and the entrant's October 19, 2026 tr
 - **Expected:** Clear availability information before choosing a credit-dependent build path.
 - **Actual:** Promotional credits were exhausted per the October 7 update, so AWS use would have required the entrant's own billing account.
 - **Severity:** Medium; constrained the feasible mini-challenge scope.
-- **Workaround:** Kept this project local and selected no mini challenges.
+- **Workaround:** Kept this project local and did not enter the AWS Builder mini challenge. RoomLilt entered only the Open Source mini challenge, which required no AWS use.
 - **Actionable suggestion:** Display credit availability prominently wherever credits are offered, reconcile older request instructions with the update, and offer a no-card development path.

@@ -2,6 +2,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { ElicitRequestSchema, type ElicitRequest, type ElicitResult, type JSONRPCMessage } from '@modelcontextprotocol/sdk/types.js';
 import type { ToolData } from '../shared/types.js';
+import { TOOL_CALL_TIMEOUT_MS } from '../shared/timeouts.js';
 
 export interface ProtocolEntry { direction: 'sent' | 'received'; message: JSONRPCMessage | JSONRPCMessage[]; time: string }
 export interface ConnectionInfo { protocolVersion: string; sessionId: string; toolNames: string[] }
@@ -68,7 +69,7 @@ export class HouseholdClient {
 
   async call(name: string, args: Record<string, unknown> = {}): Promise<ToolData> {
     if (!this.client) throw new Error('The local server is disconnected. Reconnect to continue.');
-    const result = await this.client.callTool({ name, arguments: args }, undefined, { timeout: 180000 });
+    const result = await this.client.callTool({ name, arguments: args }, undefined, { timeout: TOOL_CALL_TIMEOUT_MS });
     if (result.isError) {
       const content = result.content as Array<{ type: string; text?: string }>;
       throw new Error(content.filter((item) => item.type === 'text').map((item) => item.text).join('\n') || 'The tool could not complete this request.');
@@ -78,12 +79,20 @@ export class HouseholdClient {
     return data;
   }
 
-  async close(): Promise<void> {
+  async close(options: { keepalive?: boolean } = {}): Promise<void> {
     const client = this.client;
     const transport = this.transport;
     this.client = undefined;
     this.transport = undefined;
-    if (transport?.sessionId) await transport.terminateSession().catch(() => undefined);
+    if (transport?.sessionId) {
+      if (options.keepalive) {
+        // The browser can finish this DELETE after pagehide unloads the page.
+        await fetch(new URL('/mcp', window.location.origin), {
+          method: 'DELETE', keepalive: true,
+          headers: { 'Mcp-Session-Id': transport.sessionId, 'MCP-Protocol-Version': transport.protocolVersion || '2025-11-25' },
+        }).catch(() => undefined);
+      } else await transport.terminateSession().catch(() => undefined);
+    }
     if (client) await client.close().catch(() => undefined);
   }
 }

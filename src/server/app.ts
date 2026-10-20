@@ -12,6 +12,7 @@ import { HouseholdStore } from '../domain/store.js';
 import { createDemoState } from '../domain/seed.js';
 import { findConflicts, proposePlans, applyPlan, reportChange } from '../domain/solver.js';
 import type { Plan, MemberId, ToolData } from '../shared/types.js';
+import { CONSENT_TIMEOUT_MS } from '../shared/timeouts.js';
 
 export const PROTOCOL_VERSION = '2025-11-25';
 
@@ -35,7 +36,28 @@ export async function createApplication(options: { dataFile?: string } = {}) {
   const store = new HouseholdStore(localDataPath(options.dataFile));
   await store.load();
   const app = createMcpExpressApp({ host: '127.0.0.1' });
-  const sessions = new Map<string, { server: McpServer; transport: StreamableHTTPServerTransport }>();
+  const sessions = new Map<string, { server: McpServer; transport: StreamableHTTPServerTransport; lastActivity: number }>();
+  const sessionIdleMs = 30 * 60_000;
+  let sessionInitialization: Promise<unknown> = Promise.resolve();
+  function touchSession(id: string) {
+    const session = sessions.get(id);
+    if (!session) return;
+    session.lastActivity = Date.now();
+    // Map order breaks ties when requests occur within the same millisecond.
+    sessions.delete(id);
+    sessions.set(id, session);
+  }
+  async function closeSession(id: string) {
+    const session = sessions.get(id);
+    sessions.delete(id);
+    await session?.server.close();
+  }
+  async function expireIdleSessions() {
+    const now = Date.now();
+    await Promise.allSettled([...sessions].filter(([, session]) => now - session.lastActivity > sessionIdleMs).map(([id]) => closeSession(id)));
+  }
+  const sessionExpiry = setInterval(() => { void expireIdleSessions(); }, 60_000);
+  sessionExpiry.unref();
   let transaction: Promise<unknown> = Promise.resolve();
   // Consent may take time: hold no write lock while a person considers it.
   // Recheck the revision inside this short write transaction after all consent arrives.
@@ -109,10 +131,10 @@ export async function createApplication(options: { dataFile?: string } = {}) {
 
     server.registerTool('propose_plans', {
       description: 'Compare up to three feasible plans with concrete member changes and fairness impact. Replaces this session\'s previous proposal menu; resolve one conflict group at a time. Does not commit.',
-      inputSchema: { conflictId: z.string().min(1) }, annotations: { readOnlyHint: true },
-    }, async ({ conflictId }) => {
+      inputSchema: { conflictId: z.string().min(1), date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional() }, annotations: { readOnlyHint: true },
+    }, async ({ conflictId, date }) => {
       try {
-        const plans = proposePlans(store.snapshot(), conflictId);
+        const plans = proposePlans(store.snapshot(), conflictId, date);
         offer(plans);
         return result({ kind: 'plans', message: plans.length ? 'Compare the changes and badges. The recommended plan balances disruption with past yielding; nobody is committed yet.' : 'No feasible options are available for this conflict.', plans, ledger: store.snapshot().ledger });
       } catch (error) { return toolError(error); }
@@ -131,9 +153,15 @@ export async function createApplication(options: { dataFile?: string } = {}) {
       if (!caps?.elicitation || (Object.keys(caps.elicitation).length > 0 && !caps.elicitation.form)) {
         return toolError(new Error('This client must support MCP form elicitation. Nothing was committed.'));
       }
+      const consentDeadline = Date.now() + CONSENT_TIMEOUT_MS;
+      function checkConsentWait() {
+        if (extra.signal.aborted) throw new Error('The request was cancelled. Nothing was committed.');
+        if (Date.now() >= consentDeadline) throw new Error('Consent timed out. Nothing was committed.');
+      }
       try {
         const acceptedBy: MemberId[] = [];
         for (const memberId of plan.yieldingMemberIds) {
+          checkConsentWait();
           const member = initial.members.find(item => item.id === memberId)!;
           const changes = plan.changes.filter(change => change.memberId === memberId).map(change => change.description).join('\n');
           const consent = await extra.sendRequest({
@@ -150,14 +178,15 @@ export async function createApplication(options: { dataFile?: string } = {}) {
                 required: ['consent', 'memberId'],
               },
             },
-          }, ElicitResultSchema, { signal: extra.signal, timeout: 120000 });
+          }, ElicitResultSchema, { signal: extra.signal, timeout: consentDeadline - Date.now() });
+          checkConsentWait();
           if (consent.action !== 'accept' || consent.content?.consent !== true || consent.content?.memberId !== memberId) {
             return result({ kind: 'commit', message: `${member.name} did not consent. The schedule and ledger have not changed.`, committed: false, state: store.snapshot(), ledger: store.snapshot().ledger });
           }
           acceptedBy.push(memberId);
         }
         return await mutate(async () => {
-          if (extra.signal.aborted) throw new Error('The request was cancelled. Nothing was committed.');
+          checkConsentWait();
           const current = store.snapshot();
           if (current.revision !== plan.revision) throw new Error('The household changed while consent was pending. Nothing was committed; request fresh options.');
           const next = applyPlan(current, plan, acceptedBy);
@@ -213,23 +242,42 @@ export async function createApplication(options: { dataFile?: string } = {}) {
     if (!['POST', 'GET', 'DELETE'].includes(req.method)) { res.setHeader('Allow', 'POST, GET, DELETE'); res.sendStatus(405); return; }
     const sessionId = req.get('mcp-session-id');
     try {
+      await expireIdleSessions();
       const existing = sessionId ? sessions.get(sessionId) : undefined;
-      if (existing) { await existing.transport.handleRequest(req, res, req.body); return; }
+      if (existing) {
+        touchSession(sessionId!);
+        await existing.transport.handleRequest(req, res, req.body);
+        touchSession(sessionId!);
+        return;
+      }
       if (sessionId) { res.status(404).json({ jsonrpc: '2.0', error: { code: -32001, message: 'Session not found; reconnect to initialize.' }, id: null }); return; }
       if (req.method !== 'POST' || !isInitializeRequest(req.body)) {
         res.status(400).json({ jsonrpc: '2.0', error: { code: -32000, message: 'Initialize first; then provide Mcp-Session-Id.' }, id: null }); return;
       }
-      if (sessions.size >= 64) { res.status(503).send('Too many demo sessions.'); return; }
-      const server = makeServer();
-      const transport = new StreamableHTTPServerTransport({
-        sessionIdGenerator: () => randomUUID(),
-        onsessioninitialized: id => { sessions.set(id, { server, transport }); },
-        onsessionclosed: async id => { sessions.delete(id); await server.close(); },
+      // Serialize admission so simultaneous initializations cannot exceed the cap.
+      const pending = sessionInitialization.then(async () => {
+        if (sessions.size >= 64) {
+          const oldestId = sessions.keys().next().value!;
+          await closeSession(oldestId);
+        }
+        const server = makeServer();
+        const transport = new StreamableHTTPServerTransport({
+          sessionIdGenerator: () => randomUUID(),
+          onsessioninitialized: id => { sessions.set(id, { server, transport, lastActivity: Date.now() }); },
+          onsessionclosed: id => closeSession(id),
+        });
+        try {
+          await server.connect(transport);
+          const sdkOnClose = transport.onclose;
+          transport.onclose = () => { if (transport.sessionId) sessions.delete(transport.sessionId); sdkOnClose?.(); };
+          await transport.handleRequest(req, res, req.body);
+        } catch (error) {
+          await server.close();
+          throw error;
+        }
       });
-      await server.connect(transport);
-      const sdkOnClose = transport.onclose;
-      transport.onclose = () => { if (transport.sessionId) sessions.delete(transport.sessionId); sdkOnClose?.(); };
-      await transport.handleRequest(req, res, req.body);
+      sessionInitialization = pending.catch(() => undefined);
+      await pending;
     } catch (error) {
       if (!res.headersSent) res.status(500).json({ jsonrpc: '2.0', error: { code: -32603, message: error instanceof Error ? error.message : 'Transport error.' }, id: null });
     }
@@ -252,6 +300,7 @@ export async function createApplication(options: { dataFile?: string } = {}) {
       return { port: address.port, url: `http://127.0.0.1:${address.port}/mcp` };
     },
     async close() {
+      clearInterval(sessionExpiry);
       await Promise.allSettled([...sessions.values()].map(session => session.server.close()));
       sessions.clear();
       if (listener) {
