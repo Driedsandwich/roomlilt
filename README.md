@@ -38,7 +38,7 @@ The bundle contains the official SDK client. The server runs TypeScript through 
 
 ## Video and submission text
 
-The [English demo video](TODO_VIDEO_URL) is 119.0 seconds at 1280×800 in H.264/AAC. It was recorded from real browser interactions with Playwright and assembled with ffmpeg. The voices are synthesized locally with Kokoro (Apache-2.0 model weights): `am_michael` narrates and `af_heart` speaks as the assistant. See [video/README.md](video/README.md) for the recording and assembly tooling. The recorder owns fresh fictional state and requires unused ports 3001 and 5173. The English Devpost field map is in [submission/SUBMISSION_FIELDS.md](submission/SUBMISSION_FIELDS.md); the story, feedback, and feature requests are also available as separate files in `submission/`.
+The [English demo video](https://www.youtube.com/watch?v=WNoZfZWvjL8) is 119.0 seconds at 1280×800 in H.264/AAC. It was recorded from real browser interactions with Playwright and assembled with ffmpeg. The voices are synthesized locally with Kokoro (Apache-2.0 model weights): `am_michael` narrates and `af_heart` speaks as the assistant. See [video/README.md](video/README.md) for the recording and assembly tooling. The recorder owns fresh fictional state and requires unused ports 3001 and 5173. The English Devpost field map is in [submission/SUBMISSION_FIELDS.md](submission/SUBMISSION_FIELDS.md); the story, feedback, and feature requests are also available as separate files in `submission/`.
 
 
 ## Demo script
